@@ -1,25 +1,19 @@
-/*
- *  This sketch sends data via HTTP GET requests to data.sparkfun.com service.
- *
- *  You need to get streamId and privateKey at data.sparkfun.com and paste them
- *  below. Or just customize this script to talk to other HTTP servers.
- *
- */
-
 #include <ESP8266WiFi.h>
 #include <lwip/ip.h>
 #include <lwip/dns.h>
 #include <string.h>
 
+extern "C" void esp_schedule();
+extern "C" void esp_yield();
 
 
 const char* ssid     = "extension";
 const char* password = NULL;
 
-const char* host = "data.sparkfun.com";
-const char* streamId   = "....................";
-const char* privateKey = "....................";
 
+
+void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg);
+firmwareinfo_t fwinfo;
 void setup() {
   Serial.begin(115200);
   delay(10);
@@ -37,11 +31,19 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
+  Serial.println("Connected");
   
-  firmwareinfo_t fwinfo;
+  
   memset(&fwinfo, 0, sizeof(fwinfo));
-  dns_getfirmwareinfo("whatever.persistent.lat", &fwinfo, NULL, NULL);
+  err_t err = dns_getfirmwareinfo("test1.example", doa_found_callback, &fwinfo);
+  if (err == ERR_INPROGRESS) {
+    esp_yield(); // wait signal from callback
+  }
+
+  Serial.print("DOA get err: ");
+  Serial.println(err);
   Serial.println(fwinfo.firmware);
+  
   Serial.println("");
   Serial.println("WiFi connected");  
   Serial.println("IP address: ");
@@ -52,56 +54,17 @@ int value = 0;
 
 void loop() {
   delay(5000);
-  ++value;
 
-  Serial.print("connecting to ");
-  Serial.println(host);
-  
-  // Use WiFiClient class to create TCP connections
-  WiFiClient client;
-  const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
-    Serial.println("connection failed");
-    return;
-  }
-  
-  // We now create a URI for the request
-  String url = "/input/";
-  url += streamId;
-  url += "?private_key=";
-  url += privateKey;
-  url += "&value=";
-  url += value;
-
-  firmwareinfo_t fwinfo;
-  memset(&fwinfo, 0, sizeof(fwinfo));
-  dns_getfirmwareinfo("whatever.persistent.lat", &fwinfo, NULL, NULL);
   Serial.print("fwinfo.firmware: ");
   Serial.println(fwinfo.firmware);
-  
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
-  
-  // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
-               "Connection: close\r\n\r\n");
-  unsigned long timeout = millis();
-  while (client.available() == 0) {
-    if (millis() - timeout > 5000) {
-      Serial.println(">>> Client Timeout !");
-      client.stop();
-      return;
-    }
+
+ 
+}
+
+void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg){
+  if (fwinfo) {
+    *(firmwareinfo_t *) arg = *fwinfo;
   }
-  
-  // Read all the lines of the reply from server and print them to Serial
-  while(client.available()){
-    String line = client.readStringUntil('\r');
-    Serial.print(line);
-  }
-  
-  Serial.println();
-  Serial.println("closing connection");
+  esp_schedule(); // resume on matching esp_yield()
 }
 
