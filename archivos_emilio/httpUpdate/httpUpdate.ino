@@ -12,47 +12,75 @@
 
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
+#include <lwip/ip.h>
+#include <lwip/dns.h>
+#include <string.h>
+
+extern "C" void esp_schedule();
+extern "C" void esp_yield();
 
 #define USE_SERIAL Serial
 
-/* DEBUG httpUpdate */
-//#define DEBUG_ESP_PORT Serial
-//#define DEBUG ESP_HTTP_UPDATE
 
 #include "wifi_secrets.h" // WIFI_SSID y WIFI_PASSWORD
-#define SERVER_IP "163.10.20.226"
-#define SERVER_PORT 8000
-#define ARCHIVO "/BlinkESP.ino.bin"
+
+firmwareinfo_t fwinfo;  // Set to zero because of the static storage
+
+void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg);
+int newer_fwversion(const char *);
+void upgrade_and_reset(const char *);
 
 void setup() {
   USE_SERIAL.begin(115200);
-  USE_SERIAL.println();
-  
-  for(uint8_t t = 5; t > 0; t--) {
-    USE_SERIAL.printf("[SETUP] WAIT %d...\n", t);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  pinMode(2, OUTPUT);
+
+  for(uint8_t t = 15; WiFi.status() != WL_CONNECTED && t > 0; t--) {
+    USE_SERIAL.printf("Connecting to WiFi network %s... WAIT %d...\n", WIFI_SSID, t);
     USE_SERIAL.flush();
     delay(1000);
   }
+  if (WiFi.status() != WL_CONNECTED) {
+      USE_SERIAL.println("Connection to WiFi network failed, restarting");
+      ESP.restart();
+  }
 
-  USE_SERIAL.println("antes del WiFi.begin");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  USE_SERIAL.println("despues del WiFi.begin");
-  
-  for(uint8_t t = 4; t > 0; t--) {
-    USE_SERIAL.printf("Conectando al wifi %s... WAIT %d...\n", WIFI_SSID, t);
-    USE_SERIAL.flush();
-    delay(1000);
+  // DOA query
+  err_t err = dns_getfirmwareinfo("test1.example", doa_found_callback, &fwinfo);
+  if (err == ERR_INPROGRESS) {
+    esp_yield(); // wait signal from callback
+  }
+
+  if (strlen(fwinfo.firmware) > 0) {
+    USE_SERIAL.print("firmware: ");
+    USE_SERIAL.println(fwinfo.firmware);
+    USE_SERIAL.print("firmware-sig: ");
+    USE_SERIAL.println(fwinfo.firmware_sig);
+    USE_SERIAL.print("firmware-version: ");
+    USE_SERIAL.println(fwinfo.firmware_version);
+
+    if (newer_fwversion(fwinfo.firmware_version)) {
+        upgrade_and_reset(fwinfo.firmware);
+    }
+  }
+  else {
+    USE_SERIAL.println("No firmware info was retrieved");
   }
 }
 
 void loop() {
-  // wait for WiFi connection
+  digitalWrite(2, LOW);
+  delay(1000);
+  digitalWrite(2, HIGH);
+  delay(1000);
+}
+
+void upgrade_and_reset(const char *url) {
+  USE_SERIAL.println("Procceding to upgrade");
   if((WiFi.status() == WL_CONNECTED)) {
-    USE_SERIAL.print("CONECTADO al wifi ");
-    USE_SERIAL.println(WIFI_SSID);
-    USE_SERIAL.println("bajando .bin del servidor...");
-    t_httpUpdate_return ret = ESPhttpUpdate.update(SERVER_IP, SERVER_PORT, ARCHIVO);
-    //t_httpUpdate_return  ret = ESPhttpUpdate.update("https://server/file.bin");
+    USE_SERIAL.print("Downloading new firmware: ");
+    USE_SERIAL.println(url);
+    t_httpUpdate_return ret = ESPhttpUpdate.update(url);
 
     switch(ret) {
         case HTTP_UPDATE_FAILED:
@@ -65,13 +93,26 @@ void loop() {
 
         case HTTP_UPDATE_OK:
             USE_SERIAL.println("HTTP_UPDATE_OK");
-            USE_SERIAL.println("archivo .bin bajado del servidor. esperar al reset o resetear manualmente");
+            USE_SERIAL.println("New firmware downloaded, wait for auto reset or restart manually");
             break;
     }
   } else {
-    USE_SERIAL.printf("Intentando conectar a %s:%d, status wifi: ", SERVER_IP, SERVER_PORT);
-    USE_SERIAL.println(WiFi.status());
-    delay(1000);
+    USE_SERIAL.printf("WiFi disconnected, reseting...");
   }
+  delay(1000);
+  ESP.restart();
 }
 
+int newer_fwversion(const char *name) {
+  return 1;
+}
+
+void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg){
+  if (fwinfo) {
+    memcpy(arg, fwinfo, sizeof(firmwareinfo_t));
+  }
+  else {
+    memset(arg, 0, sizeof(firmwareinfo_t));
+  }
+  esp_schedule(); // resume on matching esp_yield()
+}
