@@ -1,0 +1,4 @@
+# stuff "git status" should ignore
+
+# nombres y contraseñas de wifi
+wifi_secrets.h
