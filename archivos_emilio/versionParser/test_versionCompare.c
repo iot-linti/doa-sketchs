@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define DEBUG
@@ -9,6 +10,12 @@
 #define DBG_PRINT(...)
 #endif /* DEBUG */
 
+int compareInts(int a, int b) {
+  if (a < b) return -1;
+  else if (a > b) return 1;
+  else return 0;
+}
+
 /*  Returns:
 *   1: currentVersion < newVersion
 *   0: currentVersion == newVersion
@@ -17,8 +24,8 @@
 int versionCompare(char * currentVersion, char * newVersion) {
   char *curstr, *newstr;
   char delim[] = " .-";
-  char buffer1[15];
-  char buffer2[15];
+  char *ptrCur;
+  char *ptrNew;
   int result = 0;
   char tempCur[15];
   char tempNew[15];
@@ -36,19 +43,19 @@ int versionCompare(char * currentVersion, char * newVersion) {
   strcpy(tempCur, currentVersion);
   strcpy(tempNew, newVersion);
 
-  curstr = strtok_r(tempCur, delim, (char **) &buffer1);
-  newstr = strtok_r(tempNew, delim, (char **) &buffer2);
+  curstr = strtok_r(tempCur, delim, (char **) &ptrCur);
+  newstr = strtok_r(tempNew, delim, (char **) &ptrNew);
   if (curstr != NULL && newstr != NULL) {
-    result = strcmp(newstr, curstr);
+    result = compareInts(atoi(newstr), atoi(curstr));
   }
 
   while (result == 0 && curstr != NULL && newstr != NULL) {
-    DBG_PRINT("%s == %s => seguir comparando\n", newstr, curstr);
+    DBG_PRINT("%s == %s\n", newstr, curstr);
 
-    curstr = strtok_r(NULL, delim, (char**) &buffer1);
-    newstr = strtok_r(NULL, delim, (char**) &buffer2);
+    curstr = strtok_r(NULL, delim, (char**) &ptrCur);
+    newstr = strtok_r(NULL, delim, (char**) &ptrNew);
     if (curstr != NULL && newstr != NULL) {
-      result = strcmp(newstr, curstr);
+      result = compareInts(atoi(newstr), atoi(curstr));
     }
   }
 
@@ -69,11 +76,11 @@ int versionCompare(char * currentVersion, char * newVersion) {
 
 void printResult(int result) {
   if (result > 0) {
-    printf("newVersion > currentVersion: bajar nueva version\n");
+    printf("newVersion > currentVersion:\tbajar nueva version\n");
   } else if (result < 0) {
-    printf("currentVersion > newVersion: dejar version actual\n");
+    printf("currentVersion > newVersion:\tdejar version actual\n");
   } else {
-    printf("currentVersion == newVersion: ambas versiones son iguales\n");
+    printf("currentVersion == newVersion:\tambas versiones son iguales\n");
   }
 }
 
@@ -82,37 +89,43 @@ int main() {
 
   //                           current        new
   printResult(versionCompare("4.1.7.3-7", "4.1.7.4-7"));
-  printf("RESULTADO ESPERADO: bajar nueva version\n(new > current)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tbajar nueva version\t(new > current)\n\n\n");
 
   printResult(versionCompare("4.1.7.5-7", "4.1.7.4-7"));
-  printf("RESULTADO ESPERADO: dejar version actual\n(current > new)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tdejar version actual\t(current > new)\n\n\n");
 
   printResult(versionCompare("4.1.7.5-7.4", "4.1.7.5-7"));
-  printf("RESULTADO ESPERADO: dejar version actual\n(son iguales excepto que current tiene mas campos)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tdejar version actual\t(son iguales excepto que current tiene mas campos)\n\n\n");
 
   printResult(versionCompare("4.1.7.5-7", "4.1.7.5-7.6"));
-  printf("RESULTADO ESPERADO: bajar nueva version\n(son iguales excepto que new tiene mas campos)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tbajar nueva version\t(son iguales excepto que new tiene mas campos)\n\n\n");
 
   printResult(versionCompare("4.1.7.5-7", "4.2.7"));
-  printf("RESULTADO ESPERADO: bajar nueva version\n(new > current)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tbajar nueva version\t(new > current)\n\n\n");
 
   printResult(versionCompare("4.3", "4.1.7.5-6"));
-  printf("RESULTADO ESPERADO: dejar version actual\n(current > new)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tdejar version actual\t(current > new)\n\n\n");
 
   printResult(versionCompare("4.1.7.5-7", "4.1.7.5-7"));
-  printf("RESULTADO ESPERADO: ambas versiones son iguales\n(current == new)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tambas versiones son iguales\t(current == new)\n\n\n");
 
   printResult(versionCompare(NULL, "4.1.7"));
-  printf("RESULTADO ESPERADO: bajar nueva version\n(current es NULL)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tbajar nueva version\t(current es NULL)\n\n\n");
 
   printResult(versionCompare("4.1.4", NULL));
-  printf("RESULTADO ESPERADO: dejar version actual\n(new es NULL)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tdejar version actual\t(new es NULL)\n\n\n");
 
   printResult(versionCompare(NULL, NULL));
-  printf("RESULTADO ESPERADO: ambas versiones son iguales\n(current == new == NULL)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tambas versiones son iguales\t(current == new == NULL)\n\n\n");
 
   printResult(versionCompare("5.10.2", "5.7.3"));
-  printf("RESULTADO ESPERADO: bajar nueva version (ERRONEO)\n(current > new, pero al comparar '10' contra '7' se compara el 1 con el 7)\n\n\n");
+  printf("RESULTADO ESPERADO:\t\tdejar version actual\t(current > new)\n\n\n");
 
+  printResult(versionCompare("5.233.2", "5.234.3"));
+  printf("RESULTADO ESPERADO:\t\tbajar nueva version\t(new > current)\n\n\n");
+
+  // TODO: pruebas con numeros y letras (por ej. 5.10b.3)
+
+  printf("Fin del programa.\n");
   return 0;
 }
