@@ -46,7 +46,7 @@ void setup() {
   }
 
   // DOA query
-  err_t err = dns_getfirmwareinfo("test1.example", doa_found_callback, &fwinfo);
+  err_t err = dns_getfirmwareinfo("78902.12.persistent.lat", doa_found_callback, &fwinfo);
   if (err == ERR_INPROGRESS) {
     esp_yield(); // wait signal from callback
   }
