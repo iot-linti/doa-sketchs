@@ -1,8 +1,3 @@
-/*  Returns:
-*   1: currentVersion < newVersion
-*   0: currentVersion == newVersion
-*  -1: currentVersion > newVersion
-*/
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +9,11 @@
 #define DBG_PRINT(...)
 #endif /* DEBUG */
 
+/*  Returns:
+*   1: currentVersion < newVersion
+*   0: currentVersion == newVersion
+*  -1: currentVersion > newVersion
+*/
 int versionCompare(char * currentVersion, char * newVersion) {
   char *curstr, *newstr;
   char delim[] = " .-";
