@@ -23,11 +23,12 @@ extern "C" void esp_yield();
 
 
 #include "wifi_secrets.h" // WIFI_SSID y WIFI_PASSWORD
+#include "versionCompare.h"
 
 firmwareinfo_t fwinfo;  // Set to zero because of the static storage
+const char* firmware_version = "1.1.0";
 
 void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg);
-int newer_fwversion(const char *);
 void upgrade_and_reset(const char *);
 
 void setup() {
@@ -59,8 +60,11 @@ void setup() {
     USE_SERIAL.print("firmware-version: ");
     USE_SERIAL.println(fwinfo.firmware_version);
 
-    if (newer_fwversion(fwinfo.firmware_version)) {
+    if (versionCompare((char*) firmware_version,fwinfo.firmware_version) > 0) {
         upgrade_and_reset(fwinfo.firmware);
+    }
+    else{
+      USE_SERIAL.println("Firmware is already up to date");
     }
   }
   else {
@@ -101,10 +105,6 @@ void upgrade_and_reset(const char *url) {
   }
   delay(1000);
   ESP.restart();
-}
-
-int newer_fwversion(const char *name) {
-  return 1;
 }
 
 void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg){
