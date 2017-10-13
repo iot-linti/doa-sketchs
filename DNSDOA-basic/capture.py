@@ -1,5 +1,5 @@
+#!/usr/bin/python
 from scapy.all import *
-from codification import *
 import sys
 
 DNS_QUERY = 0
