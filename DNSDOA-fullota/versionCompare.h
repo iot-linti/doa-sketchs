@@ -2,6 +2,6 @@
 #define TEST_VERSIONCOMPARE_H
 
 static int compareInts(int a, int b);
-int versionCompare(char * currentVersion, char * newVersion);
+int versionCompare(const char * currentVersion, const char * newVersion);
 
 #endif /* TEST_VERSIONCOMPARE */

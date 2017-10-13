@@ -19,14 +19,23 @@
 extern "C" void esp_schedule();
 extern "C" void esp_yield();
 
-#define USE_SERIAL Serial
+#define INTERACTIVE
 
+#define USE_SERIAL Serial
+#ifdef INTERACTIVE
+#define WAIT { USE_SERIAL.print("[Press enter to continue...]");\
+               while (!USE_SERIAL.available()) yield();\
+               while (USE_SERIAL.available()) { USE_SERIAL.read(); yield(); }\
+               USE_SERIAL.println(); }
+#else
+#define WAIT
+#endif
 
 #include "wifi_secrets.h" // WIFI_SSID y WIFI_PASSWORD
 #include "versionCompare.h"
 
 firmwareinfo_t fwinfo;  // Set to zero because of the static storage
-const char* firmware_version = "1.1.0";
+const char* firmware_version = "0.9.0";
 
 void doa_found_callback(const char * name, firmwareinfo_t *fwinfo, void *arg);
 void upgrade_and_reset(const char *);
@@ -46,25 +55,30 @@ void setup() {
       ESP.restart();
   }
 
+  USE_SERIAL.printf("Current firmware version: %s\n", firmware_version);
   // DOA query
+  USE_SERIAL.println("DNS query for 78902.12.persistent.lat");
+  WAIT;
   err_t err = dns_getfirmwareinfo("78902.12.persistent.lat", doa_found_callback, &fwinfo);
   if (err == ERR_INPROGRESS) {
     esp_yield(); // wait signal from callback
   }
 
   if (strlen(fwinfo.firmware) > 0) {
-    USE_SERIAL.print("firmware: ");
+    USE_SERIAL.println("DNS answer:");
+    USE_SERIAL.print("    firmware: ");
     USE_SERIAL.println(fwinfo.firmware);
-    USE_SERIAL.print("firmware-sig: ");
+    USE_SERIAL.print("    firmware-sig: ");
     USE_SERIAL.println(fwinfo.firmware_sig);
-    USE_SERIAL.print("firmware-version: ");
+    USE_SERIAL.print("    firmware-version: ");
     USE_SERIAL.println(fwinfo.firmware_version);
-
-    if (versionCompare((char*) firmware_version,fwinfo.firmware_version) > 0) {
+    WAIT;
+    USE_SERIAL.printf("Comparing current version %s with remote version %s\n", firmware_version, fwinfo.firmware_version);
+    if (versionCompare(firmware_version, fwinfo.firmware_version) > 0) {
         upgrade_and_reset(fwinfo.firmware);
     }
     else{
-      USE_SERIAL.println("Firmware is already up to date");
+        USE_SERIAL.println("Firmware is already up to date");
     }
   }
   else {
@@ -81,6 +95,7 @@ void loop() {
 
 void upgrade_and_reset(const char *url) {
   USE_SERIAL.println("Procceding to upgrade");
+  WAIT;
   if((WiFi.status() == WL_CONNECTED)) {
     USE_SERIAL.print("Downloading new firmware: ");
     USE_SERIAL.println(url);
