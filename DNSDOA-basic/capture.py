@@ -1,11 +1,12 @@
 #!/usr/bin/python
 from scapy.all import *
 import sys
+from time import sleep
 
 DNS_QUERY = 0
 DNS_ANSWER = 1
 
-WIDTH = 80
+WIDTH = 62
 DOA_TYPE_FIRMWARE = 102
 DOA_TYPE_FIRMWARE_SIG = 103
 DOA_TYPE_FIRMWARE_VERSION = 104
@@ -13,6 +14,8 @@ DOA_TYPE_FIRMWARE_VERSION = 104
 DOA_LOCATION_LOCAL = 1
 DOA_LOCATION_URI = 2
 DOA_LOCATION_LOCAL = 3
+
+DELAY = 0
 
 class DOARecord(object):
     rdata_format = struct.Struct('!IIBB')
@@ -41,6 +44,9 @@ class DOARecord(object):
     def _separator(self):
         print('+{}+'.format('-' * (WIDTH - 2)))
 
+    def wrap_lines(self, text, width):
+        return (text[i:i+width] for i in range(0, len(text), width))
+
     def doa_type_name(self):
         return self.doa_types.get(self.doa_type, 'Unknown')
 
@@ -60,7 +66,9 @@ class DOARecord(object):
         self._separator()
         print('| {:^{}} |'.format('Media-Type: {}'.format(self.media_type), WIDTH - 4))
         self._separator()
-        print('| {:^{}} |'.format('DOA-Data: {}'.format(self.doa_data), WIDTH - 4))
+        print('| {:{}} |'.format('DOA-Data:', WIDTH - 4))
+        for line in self.wrap_lines(self.doa_data, WIDTH - 4):
+            print('| {:{}} |'.format('{}'.format(line), WIDTH - 4))
         self._separator()
 
 
@@ -102,6 +110,7 @@ def callback(pkt):
             print(rrname + ' with RRTYPE ' + str(type_))
             if type_ == 259:
                 DOARecord.from_wire(rdata).pprint()
+                sleep(DELAY)
             else:
                 print(rdata)
             print('')

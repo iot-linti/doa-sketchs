@@ -23,8 +23,9 @@ extern "C" void esp_yield();
 
 #define USE_SERIAL Serial
 #ifdef INTERACTIVE
-#define WAIT { USE_SERIAL.print("[Press enter to continue...]");\
-               while (!USE_SERIAL.available()) yield();\
+#define WAIT { int c;\
+               USE_SERIAL.print("[Press enter to continue...]");\
+               do { c = USE_SERIAL.read(); yield(); } while (c != '\n' && c != '\r');\
                while (USE_SERIAL.available()) { USE_SERIAL.read(); yield(); }\
                USE_SERIAL.println(); }
 #else
