@@ -1,12 +1,15 @@
 #!/usr/bin/python
 from scapy.all import *
-import sys
 from time import sleep
+import argparse
+import blessings
+import functools
+import os
+import sys
 
 DNS_QUERY = 0
 DNS_ANSWER = 1
 
-WIDTH = 62
 DOA_TYPE_FIRMWARE = 102
 DOA_TYPE_FIRMWARE_SIG = 103
 DOA_TYPE_FIRMWARE_VERSION = 104
@@ -15,7 +18,25 @@ DOA_LOCATION_LOCAL = 1
 DOA_LOCATION_URI = 2
 DOA_LOCATION_LOCAL = 3
 
-DELAY = 0
+DELAY = 5
+term = blessings.Terminal(kind='xterm-256color')
+WIDTH = 55 if term.width < 55 else term.width
+QUERY_COLOR = term.red
+ANSWER_COLOR = term.blue
+BRIGHT_QUERY_COLOR = term.bright_yellow
+BRIGHT_ANSWER_COLOR = term.bright_cyan
+EMPH = term.reverse
+EMPH2 = EMPH
+NORMAL = term.normal
+
+ESPRESSIF_NAME = None
+ESPRESSIF_OUI = '5c:cf:7f'
+
+def emph_rst(text, emph_format, reset_format):
+    '''
+    emph the given text and then apply reset_format.
+    '''
+    return emph_format(text) + reset_format
 
 class DOARecord(object):
     rdata_format = struct.Struct('!IIBB')
@@ -24,6 +45,7 @@ class DOARecord(object):
         1: 'Contact e-mail',
         2: 'Contact Website',
         3: 'Contact telephone',
+        101: 'Description',
         102: 'Firmware',
         103: 'Firmware signature',
         104: 'Firmware version',
@@ -57,7 +79,11 @@ class DOARecord(object):
         self._separator()
         print('| {:^{}} |'.format('Enterprise: {}'.format(self.enterprise), WIDTH - 4))
         self._separator()
-        print('| {:^{}} |'.format('DOA-Type: {} ({})'.format(self.doa_type, self.doa_type_name()), WIDTH - 4))
+        doa_type ='DOA-Type: {} ({})'.format(self.doa_type, self.doa_type_name())
+        doa_type_fmt = emph_rst(doa_type, EMPH, ANSWER_COLOR)
+        fmt_len = len(doa_type_fmt) - len(doa_type)
+        print('| {:^{}} |'.format(doa_type_fmt, WIDTH - 4 + fmt_len))
+
         self._separator()
         half_a = WIDTH / 2
         half_b = WIDTH - half_a
@@ -66,9 +92,11 @@ class DOARecord(object):
         self._separator()
         print('| {:^{}} |'.format('Media-Type: {}'.format(self.media_type), WIDTH - 4))
         self._separator()
-        print('| {:{}} |'.format('DOA-Data:', WIDTH - 4))
+        print('| {:{}} |'.format(emph_rst('DOA-Data:', EMPH, ANSWER_COLOR), WIDTH - 4 + 9))
         for line in self.wrap_lines(self.doa_data, WIDTH - 4):
-            print('| {:{}} |'.format('{}'.format(line), WIDTH - 4))
+            line_fmt = emph_rst(line, EMPH, ANSWER_COLOR)
+            fmt_len = len(line_fmt) - len(line)
+            print('| {:{}} |'.format(line_fmt, WIDTH - 4 + fmt_len))
         self._separator()
 
 
@@ -88,18 +116,39 @@ class DOARecord(object):
 def callback(pkt):
     if not pkt[0].haslayer(DNS):
         return ''
+
+    type_ = pkt[0]['DNS'].fields['qr']
+    srcmac = pkt[0]['Ether'].src
+    dstmac = pkt[0]['Ether'].dst
+    if type_ == DNS_QUERY:
+        color = QUERY_COLOR
+    else:
+        color = ANSWER_COLOR
+
+    sys.stdout.write(color)
+
     print('=' * WIDTH)
-    print('{:^{}}'.format('{} -> {}'.format(pkt['IP'].src, pkt['IP'].dst), WIDTH))
+    src = pkt['IP'].src
+    dst = pkt['IP'].dst
+    if ESPRESSIF_NAME is not None:
+        if srcmac[0:8] == ESPRESSIF_OUI:
+            src = ESPRESSIF_NAME
+        if dstmac[0:8] == ESPRESSIF_OUI:
+            dst = ESPRESSIF_NAME
+    print('{:^{}}'.format('{} -> {}'.format(src, dst), WIDTH))
     qname = pkt[0]['DNS'].fields['qd'].fields['qname']
     qtype = pkt[0]['DNS'].fields['qd'].fields['qtype']
-    type_ = pkt[0]['DNS'].fields['qr']
-    
-    title = 'DNS {} for name: {} '.format('Query' if type_ == DNS_QUERY else 'Answer', qname)
+
+    title = 'DNS {} for name: {} '.format(emph_rst(
+        'Query' if type_ == DNS_QUERY else 'Answers',
+        EMPH2,
+        color
+    ), qname)
     print('{:^{}}'.format(title, WIDTH))
     print('=' * WIDTH)
-    
+
     if type_ == DNS_QUERY:
-        print(qname + ' with RRTYPE ' + str(qtype))
+        print(qname + ' with ' + emph_rst('RRTYPE ' + str(qtype), EMPH, color))
     else:
         ancount = pkt[0]['DNS'].fields['ancount']
         for i in range(ancount):
@@ -107,16 +156,41 @@ def callback(pkt):
             rrname = ans.fields['rrname']
             rdata = ans.fields['rdata']
             type_ = ans.fields['type']
-            print(rrname + ' with RRTYPE ' + str(type_))
+            print(rrname + ' with ' + emph_rst('RRTYPE ' + str(type_), EMPH, color))
             if type_ == 259:
                 DOARecord.from_wire(rdata).pprint()
                 sleep(DELAY)
             else:
                 print(rdata)
-            print('')
-    print('')
+            print('') # Separator between answers
+    print(term.normal)
+
+def get_argparser():
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('-i', '--interface', help='Sniff from given interface')
+    mode.add_argument('-f', '--file', help='Read pcap file')
+    parser.add_argument('-d', '--dark', action='store_true',
+                        help='Colors for dark background terminals')
+    parser.add_argument('-n', '--name',
+                        help='Use name for Espressif devices')
+    return parser
+
 
 
 if __name__ == '__main__':
-    sniff(iface='wlan2', filter="udp and port 53", promisc=1, store=0, prn=callback)
+    parser = get_argparser()
+    args = parser.parse_args()
+    if 'name' in args:
+        ESPRESSIF_NAME = args.name
+    if args.dark:
+        QUERY_COLOR = BRIGHT_QUERY_COLOR
+        ANSWER_COLOR = BRIGHT_ANSWER_COLOR
+    if args.interface:
+        sniff(iface=args.interface, filter="udp and port 53", promisc=1, store=0, prn=callback)
+    elif args.file:
+        sniff(offline=args.file, filter="udp and port 53", promisc=1, store=0, prn=callback)
+    else:
+        parser.print_usage()
+        exit(1)
 
