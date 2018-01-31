@@ -21,6 +21,7 @@ DOA_LOCATION_LOCAL = 3
 DELAY = 5
 term = blessings.Terminal(kind='xterm-256color')
 WIDTH = 55 if term.width < 55 else term.width
+WIDTH = 55
 QUERY_COLOR = term.red
 ANSWER_COLOR = term.blue
 BRIGHT_QUERY_COLOR = term.bright_yellow
@@ -36,7 +37,9 @@ def emph_rst(text, emph_format, reset_format):
     '''
     emph the given text and then apply reset_format.
     '''
-    return emph_format(text) + reset_format
+    fmt_text = emph_format(text) + reset_format
+    fmt_len = len(fmt_text) - len(text)
+    return fmt_text, fmt_len
 
 class DOARecord(object):
     rdata_format = struct.Struct('!IIBB')
@@ -80,8 +83,7 @@ class DOARecord(object):
         print('| {:^{}} |'.format('Enterprise: {}'.format(self.enterprise), WIDTH - 4))
         self._separator()
         doa_type ='DOA-Type: {} ({})'.format(self.doa_type, self.doa_type_name())
-        doa_type_fmt = emph_rst(doa_type, EMPH, ANSWER_COLOR)
-        fmt_len = len(doa_type_fmt) - len(doa_type)
+        doa_type_fmt, fmt_len =  emph_rst(doa_type, EMPH, ANSWER_COLOR)
         print('| {:^{}} |'.format(doa_type_fmt, WIDTH - 4 + fmt_len))
 
         self._separator()
@@ -92,10 +94,10 @@ class DOARecord(object):
         self._separator()
         print('| {:^{}} |'.format('Media-Type: {}'.format(self.media_type), WIDTH - 4))
         self._separator()
-        print('| {:{}} |'.format(emph_rst('DOA-Data:', EMPH, ANSWER_COLOR), WIDTH - 4 + 9))
+        doa_data_fmt, fmt_len = emph_rst('DOA-Data:', EMPH, ANSWER_COLOR)
+        print('| {:{}} |'.format(doa_data_fmt, WIDTH - 4 + fmt_len))
         for line in self.wrap_lines(self.doa_data, WIDTH - 4):
-            line_fmt = emph_rst(line, EMPH, ANSWER_COLOR)
-            fmt_len = len(line_fmt) - len(line)
+            line_fmt, fmt_len = emph_rst(line, EMPH, ANSWER_COLOR)
             print('| {:{}} |'.format(line_fmt, WIDTH - 4 + fmt_len))
         self._separator()
 
@@ -143,12 +145,12 @@ def callback(pkt):
         'Query' if type_ == DNS_QUERY else 'Answers',
         EMPH2,
         color
-    ), qname)
+    )[0], qname)
     print('{:^{}}'.format(title, WIDTH))
     print('=' * WIDTH)
 
     if type_ == DNS_QUERY:
-        print(qname + ' with ' + emph_rst('RRTYPE ' + str(qtype), EMPH, color))
+        print(emph_rst(qname, EMPH, color)[0] + ' with ' + emph_rst('RRTYPE ' + str(qtype), EMPH, color)[0])
     else:
         ancount = pkt[0]['DNS'].fields['ancount']
         for i in range(ancount):
@@ -156,7 +158,7 @@ def callback(pkt):
             rrname = ans.fields['rrname']
             rdata = ans.fields['rdata']
             type_ = ans.fields['type']
-            print(rrname + ' with ' + emph_rst('RRTYPE ' + str(type_), EMPH, color))
+            print(emph_rst(rrname, EMPH, color)[0] + ' with ' + emph_rst('RRTYPE ' + str(type_), EMPH, color)[0])
             if type_ == 259:
                 DOARecord.from_wire(rdata).pprint()
                 sleep(DELAY)

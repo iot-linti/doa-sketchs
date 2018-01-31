@@ -22,7 +22,7 @@ int compareInts(int a, int b) {
 *   0: currentVersion == newVersion
 *  -1: currentVersion > newVersion
 */
-int versionCompare(char * currentVersion, char * newVersion) {
+int versionCompare(const char * currentVersion, const char * newVersion) {
   char *curstr, *newstr;
   char delim[] = " .-";
   char *ptrCur;
