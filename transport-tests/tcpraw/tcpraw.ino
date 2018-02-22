@@ -7,27 +7,21 @@
  */
 
 #include <ESP8266WiFi.h>
+#include "secrets.h"
 
-const char* ssid     = "your-ssid";
-const char* password = "your-password";
+const char* ssid     = AP_SSID;
+const char* password = AP_PASS;
 
-const char* host = "data.sparkfun.com";
-const char* streamId   = "....................";
-const char* privateKey = "....................";
+const char* host = "163.10.20.210";
+
 
 void setup() {
   Serial.begin(115200);
-  delay(10);
-
-  // We start by connecting to a WiFi network
-
-  Serial.println();
-  Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -42,35 +36,22 @@ void setup() {
 int value = 0;
 
 void loop() {
-  delay(5000);
+  delay(500);
   ++value;
 
   Serial.print("connecting to ");
   Serial.println(host);
-  
+
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
-  const int httpPort = 80;
-  if (!client.connect(host, httpPort)) {
+  const int tcpPort = 9001;
+  if (!client.connect(host, tcpPort)) {
     Serial.println("connection failed");
     return;
   }
-  
-  // We now create a URI for the request
-  String url = "/input/";
-  url += streamId;
-  url += "?private_key=";
-  url += privateKey;
-  url += "&value=";
-  url += value;
-  
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
-  
+
   // This will send the request to the server
-  client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-               "Host: " + host + "\r\n" + 
-               "Connection: close\r\n\r\n");
+  client.print("/");
   unsigned long timeout = millis();
   while (client.available() == 0) {
     if (millis() - timeout > 5000) {
@@ -79,13 +60,13 @@ void loop() {
       return;
     }
   }
-  
+
   // Read all the lines of the reply from server and print them to Serial
   while(client.available()){
-    String line = client.readStringUntil('\r');
+    String line = client.readStringUntil('\n');
     Serial.print(line);
   }
-  
+
   Serial.println();
   Serial.println("closing connection");
 }

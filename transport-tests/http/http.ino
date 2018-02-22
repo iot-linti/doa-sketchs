@@ -7,27 +7,20 @@
  */
 
 #include <ESP8266WiFi.h>
+#include "secrets.h"
 
-const char* ssid     = "your-ssid";
-const char* password = "your-password";
+const char* ssid     = AP_SSID;
+const char* password = AP_PASS;
 
-const char* host = "data.sparkfun.com";
-const char* streamId   = "....................";
-const char* privateKey = "....................";
+const char* host = "163.10.20.210";
 
 void setup() {
   Serial.begin(115200);
-  delay(10);
-
-  // We start by connecting to a WiFi network
-
-  Serial.println();
-  Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+
   WiFi.begin(ssid, password);
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -42,7 +35,7 @@ void setup() {
 int value = 0;
 
 void loop() {
-  delay(5000);
+  delay(500);
   ++value;
 
   Serial.print("connecting to ");
@@ -50,22 +43,14 @@ void loop() {
   
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
-  const int httpPort = 80;
+  const int httpPort = 9000;
   if (!client.connect(host, httpPort)) {
     Serial.println("connection failed");
     return;
   }
   
   // We now create a URI for the request
-  String url = "/input/";
-  url += streamId;
-  url += "?private_key=";
-  url += privateKey;
-  url += "&value=";
-  url += value;
-  
-  Serial.print("Requesting URL: ");
-  Serial.println(url);
+  String url = "/";
   
   // This will send the request to the server
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
