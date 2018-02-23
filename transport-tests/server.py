@@ -3,13 +3,13 @@ from socketserver import StreamRequestHandler, BaseRequestHandler
 from socketserver import TCPServer, UDPServer
 import sys
 
-def gen_ascii_data(bytes_=1024, line_width=80):
+def gen_ascii_data(bytes_=512, line_width=80):
     lines = bytes_ // line_width
     text = '\n'.join(['A' * (line_width - 1)] * lines)
     text += '\n'
     last_line_bytes = bytes_ - len(text)
     if last_line_bytes > 0:
-        text += 'A' * (last_line_bytes - 1) + '\n'
+        text += 'B' * (last_line_bytes - 1) + '\n'
     return text.encode('utf-8')
 
 class TCPHandler(StreamRequestHandler):
@@ -46,6 +46,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
 if __name__ == '__main__':
     host, http_port, tcp_port, udp_port = '0.0.0.0', 9000, 9001, 9002
+    print(len(gen_ascii_data()))
 
     if 'http' in sys.argv:
         http_server = HTTPServer((host, http_port), HTTPHandler)

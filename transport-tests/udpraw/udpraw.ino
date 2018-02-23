@@ -25,7 +25,7 @@ const char* password = AP_PASS;
 
 unsigned int localPort = 2390;      // local port to listen on
 
-char packetBuffer[256]; //buffer to hold incoming packet
+char packetBuffer[513]; //buffer to hold incoming packet
 
 WiFiUDP Udp;
 
@@ -49,29 +49,28 @@ void setup() {
 }
 
 void loop() {
-  static bool state_send = true;
-  
-  if (state_send) {
-    Udp.beginPacket("163.10.20.210", 9002);
-    Udp.write("/");
-    Udp.endPacket();
-    state_send = false;
-    delay(500);
-  }
-  else {
-    // if there's data available, read a packet
-    int packetSize = Udp.parsePacket();
-    while (packetSize) {
-      // read the packet into packetBufffer
-      int len = Udp.read(packetBuffer, 255);
-      if (len > 0) {
-        packetBuffer[len] = 0;
-      }
-      Serial.println("Contents:");
-      Serial.println(packetBuffer);
-      state_send = true;
-      
-      packetSize = Udp.parsePacket();
+  delay(500);  
+
+  Udp.beginPacket("163.10.20.210", 9002);
+  Udp.write("/");
+  Udp.endPacket();
+
+  int packetSize;
+  unsigned long timeout = millis();
+  while ((packetSize = Udp.parsePacket()) == 0) {
+    if (millis() - timeout > 5000) {
+      Serial.println(">>> Client Timeout !");
+      return;
     }
+  }
+  if (packetSize) {
+    // read the packet into packetBufffer
+    int len = Udp.read(packetBuffer, 512);
+    if (len >= 0) {
+      packetBuffer[len] = 0;
+    }
+
+    Serial.println("Contents:");
+    Serial.println(packetBuffer);
   }
 }
