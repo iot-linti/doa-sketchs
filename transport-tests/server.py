@@ -2,6 +2,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import StreamRequestHandler, BaseRequestHandler
 from socketserver import TCPServer, UDPServer
 from threading import Thread
+import datetime
 import ssl
 import sys
 
@@ -17,9 +18,11 @@ def gen_ascii_data(bytes_=512, line_width=80):
 class TCPHandler(StreamRequestHandler):
     def setup(self):
         super(TCPHandler, self).setup()
+        self.log = open(self.__class__.__name__ + '.log', 'a')
         print(self.__class__)
 
     def handle(self):
+        self.log.write(datetime.datetime.now().isoformat() + '\n')
         self.data = self.rfile.read(1)
         self.wfile.write(gen_ascii_data())
 
@@ -27,9 +30,11 @@ class TCPHandler(StreamRequestHandler):
 class UDPHandler(BaseRequestHandler):
     def setup(self):
         super(UDPHandler, self).setup()
+        self.log = open(self.__class__.__name__ + '.log', 'a')
         print(self.__class__)
 
     def handle(self):
+        self.log.write(datetime.datetime.now().isoformat() + '\n')
         self.data = self.request[0]
         socket = self.request[1]
         socket.sendto(gen_ascii_data(), self.client_address)
@@ -38,9 +43,11 @@ class UDPHandler(BaseRequestHandler):
 class HTTPHandler(BaseHTTPRequestHandler):
     def setup(self):
         super(HTTPHandler, self).setup()
+        self.log = open(self.__class__.__name__ + '.log', 'a')
         print(self.__class__)
 
     def do_GET(self):
+        self.log.write(datetime.datetime.now().isoformat() + '\n')
         self.send_response(200)
         self.end_headers()
         self.wfile.write(gen_ascii_data())
