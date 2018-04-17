@@ -12,7 +12,7 @@
 const char* ssid     = AP_SSID;
 const char* password = AP_PASS;
 
-const char* host = "163.10.20.210";
+const char* host = HOST;
 
 void setup() {
   Serial.begin(115200);

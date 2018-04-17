@@ -51,7 +51,7 @@ void setup() {
 void loop() {
   delay(500);  
 
-  Udp.beginPacket("163.10.20.210", 9002);
+  Udp.beginPacket(HOST, 9002);
   Udp.write("/");
   Udp.endPacket();
 
