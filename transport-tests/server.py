@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import StreamRequestHandler, BaseRequestHandler
 from socketserver import TCPServer, UDPServer
@@ -5,6 +6,11 @@ from threading import Thread
 import datetime
 import ssl
 import sys
+
+if sys.version_info.major != 3:
+    print('Python 3 requerido, se detectó Python {}'
+            .format(sys.version_info.major))
+    exit(1)
 
 def gen_ascii_data(bytes_=512, line_width=80):
     lines = bytes_ // line_width
@@ -43,7 +49,8 @@ class UDPHandler(BaseRequestHandler):
 class HTTPHandler(BaseHTTPRequestHandler):
     def setup(self):
         super(HTTPHandler, self).setup()
-        self.log = open(self.__class__.__name__ + '.log', 'a')
+        self.protocol_version = 'HTTP/1.0'
+        self.log = open(self.__class__.__name__ + str(type(self.server.socket)) + '.log', 'a')
         print(self.__class__)
 
     def do_GET(self):
